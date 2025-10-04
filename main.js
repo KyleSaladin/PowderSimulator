@@ -1,50 +1,135 @@
 const canvas = document.getElementById("mainCanvas");
 const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+canvas.width = window.innerWidth - 100;
+canvas.height = window.innerHeight - 100;
 
-let gridSize = 11;
+let mouseX = 0;
+let mouseY = 0;
+let mouseDown = false;
+let brushRadius = 5;
+
+let gridSize = 1000;
 let grid = createGrid();
 const cellSize = Math.min(canvas.width, canvas.height) / gridSize;
 
-ctx.lineWidth = cellSize/10;
+let blockToPlace = 1;
+let blockTypeAmount = 4;
+
+ctx.lineWidth = cellSize / 10;
 ctx.strokeStyle = 'blue';
 
-
-grid[4][0] = 1;
-/*
-grid[5][0] = 1;
-grid[6][0] = 1;
-grid[4][1] = 1;
-grid[5][1] = 1;
-grid[6][1] = 1;
-grid[5][2] = 1;
-grid[4][2] = 1;
-grid[6][2] = 1;*/
 
 
 let lastTime = Date.now();;
 let timeSincePreviousFrame = 0;
-let timeBetweenFrames = 0.25;
+let timeBetweenFrames = 0.001;
+
+canvas.addEventListener("mousemove", (e) => {
+    mouseX = e.offsetX;
+    mouseY = e.offsetY;
+});
+
+canvas.addEventListener("mousedown", (e) => {
+    mouseDown = true;
+})
+
+canvas.addEventListener("mouseup", (e) => {
+    mouseDown = false;
+});
+
+window.addEventListener("keydown", (e) => {
+    console.log(e.key)
+    if (e.key == "Backspace") {
+        blockToPlace = 0;
+    }
+    if (e.key == "s") {
+        blockToPlace = 1;
+    }
+    if (e.key == "b") {
+        blockToPlace = 2;
+    }
+    if (e.key == "w") {
+        blockToPlace = 3;
+    }
+
+    if (e.key == "1") {
+        brushRadius = 1;
+    }
+    if (e.key == "2") {
+        brushRadius = 2;
+    }
+    if (e.key == "3") {
+        brushRadius = 3;
+    }
+    if (e.key == "4") {
+        brushRadius = 4;
+    }
+    if (e.key == "5") {
+        brushRadius = 5;
+    }
+    if (e.key == "6") {
+        brushRadius = 6;
+    }
+    if (e.key == "7") {
+        brushRadius = 7;
+    }
+    if (e.key == "8") {
+        brushRadius = 8;
+    }
+    if (e.key == "9") {
+        brushRadius = 9;
+    }
+    if (e.key == "0") {
+        brushRadius = 10;
+    }
+
+    if (e.key == " ") {
+        blockToPlace++;
+        blockToPlace %= blockTypeAmount;
+    }
+});
 
 animate();
 
 function animate() {
     let now = Date.now();
     const dt = (now - lastTime) / 1000;
-    lastTime = now; 
+    lastTime = now;
     timeSincePreviousFrame += dt;
     if (timeSincePreviousFrame >= timeBetweenFrames) {
         timeSincePreviousFrame = 0;
         updateGrid();
     }
 
+    if (mouseDown) {
+        addElementByMouse();
+    }
+
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    drawGrid();
     drawGridElements();
     requestAnimationFrame(animate);
+}
+
+function addElementByMouse() {
+    let gridX = Math.floor(mouseX / cellSize);
+    let gridY = Math.floor(mouseY / cellSize);
+
+    for (let x = Math.max(0, gridX - brushRadius); x < Math.min(gridX + brushRadius, gridSize); x++) {
+        for (let y = Math.max(0, gridY - brushRadius); y < Math.min(gridY + brushRadius, gridSize); y++) {
+            let dx = x - gridX;
+            let dy = y - gridY;
+            console.log("Lets Play")
+            if (dx * dx + dy * dy <= brushRadius * brushRadius) {
+                console.log("place?");
+                if (grid[x][y] == 0 || blockToPlace == 0) {
+                    console.log("Placed");
+                    grid[x][y] = blockToPlace;
+                }
+            }
+        }
+    }
 }
 
 function updateGrid() {
@@ -59,10 +144,10 @@ function updateGrid() {
     switch (randomOrder) {
         case 0:
             fromX = 0;
-            toX = gridSize - 1;
+            toX = gridSize;
             stepX = 1;
             fromY = 0;
-            toY = gridSize - 1;
+            toY = gridSize;
             stepY = 1;
             break;
         case 1:
@@ -70,12 +155,12 @@ function updateGrid() {
             toX = -1;
             stepX = -1;
             fromY = 0;
-            toY = gridSize - 1;
+            toY = gridSize;
             stepY = 1;
             break;
         case 2:
             fromX = 0;
-            toX = gridSize - 1;
+            toX = gridSize;
             stepX = 1;
             fromY = gridSize - 1;
             toY = -1;
@@ -91,19 +176,20 @@ function updateGrid() {
             break;
 
     }
-    fromX = 0;
-    toX = gridSize - 1;
-    stepX = 1;
-    fromY = 0;
-    toY = gridSize - 1;
-    stepY = 1;
 
     let nextGrid = createGrid();
+
     for (let x = fromX; x != toX; x += stepX) {
         for (let y = fromY; y != toY; y += stepY) {
             switch (grid[x][y]) {
                 case 1: //Sand
                     sandLogic(x, y, nextGrid);
+                    continue;
+                case 2:
+                    solidLogic(x, y, nextGrid);
+                    continue;
+                case 3: //Water 
+                    waterLogic(x, y, nextGrid);
                     continue;
                 default:
                     continue;
@@ -126,14 +212,19 @@ function createGrid() {
     return newGrid;
 }
 
-function sandLogic(x, y, nextGrid) {
+function solidLogic(x, y, nextGrid) {
+    nextGrid[x][y] = 2;
+}
+
+function waterLogic(x, y, nextGrid) {
     let cellDown = -1;
     let cell2Down = -1;
     let cellDownRight = -1;
     let cellDownLeft = -1;
     let cellLeft = -1;
     let cellRight = -1;
-    console.log(nextGrid);
+    let cellUpRight = -1;
+    let cellUpLeft = -1;
 
     if (x < gridSize - 1 && y < gridSize - 1) {
         cellDownRight = grid[x + 1][y + 1]
@@ -153,64 +244,163 @@ function sandLogic(x, y, nextGrid) {
     if (y < gridSize - 2) {
         cell2Down = grid[x][y + 2];
     }
-    console.log(cellDown);
-
-    if (cellDown == -1) {
-        console.log("stay");
-        nextGrid[x][y] = 1;
-        return;
+    if (x > 0 && y > 0) {
+        cellUpLeft = grid[x - 1][y - 1];
+    }
+    if (x < gridSize - 1 && y > 0) {
+        cellUpRight = grid[x + 1][y - 1];
     }
 
-    if (cellDown == 0 || cell2Down == 0) {
-        if (grid[x][y - 1] == 1) {
-            console.log("Already sand");
+    if (cellDown == 0 || (cellDown != 2 && cell2Down == 0)) {
+        randomOrder = Math.round(Math.random() * 3);
+        if (randomOrder != 0) {
+            nextGrid[x][y + 1] = 3;
+            return;
         }
-        nextGrid[x][y + 1] = 1;
-        console.log(nextGrid);
-        return;
     }
 
     randomOrder = Math.round(Math.random());
     if (randomOrder == 1) {
         if (cellDownLeft == 0 && cellLeft == 0) {
-            nextGrid[x - 1][y + 1] = 1;
-            console.log(nextGrid);
-            return;
+            if (nextGrid[x - 1][y + 1] == 0) {
+                nextGrid[x - 1][y + 1] = 3;
+                return;
+            }
         }
         if (cellDownRight == 0 && cellRight == 0) {
+            if (nextGrid[x + 1][y + 1] == 0) {
+                nextGrid[x + 1][y + 1] = 3;
+                return;
+            }
+        }
+    } else {
+        if (cellDownRight == 0 && cellRight == 0) {
+            if (nextGrid[x + 1][y + 1] == 0) {
+                nextGrid[x + 1][y + 1] = 3;
+                return;
+            }
+        }
+        if (cellDownLeft == 0 && cellLeft == 0) {
+            if (nextGrid[x - 1][y + 1] == 0) {
+                nextGrid[x - 1][y + 1] = 3;
+                return;
+            }
+        }
+    }
+
+    randomOrder = Math.round(Math.random());
+    if (randomOrder == 1) {
+        if (cellLeft == 0 && (cellUpLeft == 0 || cellUpLeft == 2)) {
+            if (nextGrid[x - 1][y] == 0) {
+                nextGrid[x - 1][y] = 3;
+                return;
+            }
+        }
+        if (cellRight == 0 && (cellUpRight == 0 || cellUpRight == 2)) {
+            if (nextGrid[x + 1][y] == 0) {
+                nextGrid[x + 1][y] = 3;
+                return;
+            }
+        }
+    } else {
+        if (cellRight == 0 && (cellUpRight == 0 || cellUpRight == 2)) {
+            if (nextGrid[x + 1][y] == 0) {
+                nextGrid[x + 1][y] = 3;
+                return;
+            }
+        }
+        if (cellLeft == 0 && (cellUpLeft == 0 || cellUpLeft == 2)) {
+            if (nextGrid[x - 1][y] == 0) {
+                nextGrid[x - 1][y] = 3;
+                return;
+            }
+        }
+    }
+    nextGrid[x][y] = 3;
+    return;
+}
+
+function sandLogic(x, y, nextGrid) {
+    let cellDown = -1;
+    let cell2Down = -1;
+    let cellDownRight = -1;
+    let cellDownLeft = -1;
+    let cellLeft = -1;
+    let cellRight = -1;
+
+    if (x < gridSize - 1 && y < gridSize - 1) {
+        cellDownRight = grid[x + 1][y + 1]
+    }
+    if (x > 0 && y < gridSize - 1) {
+        cellDownLeft = grid[x - 1][y + 1]
+    }
+    if (x > 0) {
+        cellLeft = grid[x - 1][y];
+    }
+    if (x < gridSize - 1) {
+        cellRight = grid[x + 1][y];
+    }
+    if (y < gridSize - 1) {
+        cellDown = grid[x][y + 1];
+    }
+    if (y < gridSize - 2) {
+        cell2Down = grid[x][y + 2];
+    }
+    
+    if (cellDown == 0 || (cellDown != 2 && cell2Down == 0)) {
+        randomOrder = Math.round(Math.random() * 8);
+        if (randomOrder != 0 && nextGrid[x][y + 1] == 0) {
+            nextGrid[x][y + 1] = 1;
+            return;
+        }
+    }
+
+
+    randomOrder = Math.round(Math.random());
+    if (randomOrder == 1) {
+        if (cellDownLeft == 0 && cellLeft == 0 && nextGrid[x-1][y+1] == 0) {
+            nextGrid[x - 1][y + 1] = 1;
+            return;
+        }
+        if (cellDownRight == 0 && cellRight == 0 && nextGrid[x - 1][y + 1] == 0) {
             nextGrid[x + 1][y + 1] = 1;
-            console.log(nextGrid);
             return;
         }
         nextGrid[x][y] = 1;
         return;
     } else {
-        if (cellDownRight == 0 && cellRight == 0) {
+        if (cellDownRight == 0 && cellRight == 0 && nextGrid[x - 1][y + 1] == 0) {
             nextGrid[x + 1][y + 1] = 1;
-            console.log(nextGrid);
             return;
         }
-        if (cellDownLeft == 0 && cellLeft == 0) {
+        if (cellDownLeft == 0 && cellLeft == 0 && nextGrid[x - 1][y + 1] == 0) {
             nextGrid[x - 1][y + 1] = 1;
-            console.log(nextGrid);
             return;
         }
         nextGrid[x][y] = 1;
-        console.log(nextGrid);
         return;
     }
-    console.log("End");
 }
 
 function drawGridElements() {
     for (let x = gridSize - 1; x >= 0; x--) {
-        for (let y = gridSize-1; y >= 0; y--) {
+        for (let y = gridSize - 1; y >= 0; y--) {
             switch (grid[x][y]) {
                 case 1: //Sand
                     ctx.fillStyle = "rgb(200, 200, 165)";
-                    ctx.fillRect(x * cellSize + 5, y * cellSize + 5, cellSize - 10, cellSize - 10);
+                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
                     ctx.stroke();
                     continue;
+                case 2: //SolidBlock
+                    ctx.fillStyle = "rgb(77, 83, 86)";
+                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    ctx.stroke();
+                    continue;
+                case 3: //Water
+                    ctx.fillStyle = "rgb(105, 185, 231)";
+                    ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    ctx.stroke();
+                    continue;             
                 default:
                     continue;
             }
