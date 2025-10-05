@@ -8,7 +8,7 @@ let mouseY = 0;
 let mouseDown = false;
 let brushRadius = 5;
 
-let gridSize = 1000;
+let gridSize = 100;
 let grid = createGrid();
 const cellSize = Math.min(canvas.width, canvas.height) / gridSize;
 
@@ -362,14 +362,14 @@ function sandLogic(x, y, nextGrid) {
             nextGrid[x - 1][y + 1] = 1;
             return;
         }
-        if (cellDownRight == 0 && cellRight == 0 && nextGrid[x - 1][y + 1] == 0) {
+        if (cellDownRight == 0 && cellRight == 0 && nextGrid[x + 1][y + 1] == 0) {
             nextGrid[x + 1][y + 1] = 1;
             return;
         }
         nextGrid[x][y] = 1;
         return;
     } else {
-        if (cellDownRight == 0 && cellRight == 0 && nextGrid[x - 1][y + 1] == 0) {
+        if (cellDownRight == 0 && cellRight == 0 && nextGrid[x + 1][y + 1] == 0) {
             nextGrid[x + 1][y + 1] = 1;
             return;
         }
