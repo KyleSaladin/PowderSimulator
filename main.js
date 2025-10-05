@@ -8,7 +8,7 @@ let mouseY = 0;
 let mouseDown = false;
 let brushRadius = 5;
 
-let gridSize = 100;
+let gridSize = 1000;
 let grid = createGrid();
 const cellSize = Math.min(canvas.width, canvas.height) / gridSize;
 
@@ -120,8 +120,11 @@ function addElementByMouse() {
         for (let y = Math.max(0, gridY - brushRadius); y < Math.min(gridY + brushRadius, gridSize); y++) {
             let dx = x - gridX;
             let dy = y - gridY;
+            console.log("Lets Play")
             if (dx * dx + dy * dy <= brushRadius * brushRadius) {
+                console.log("place?");
                 if (grid[x][y] == 0 || blockToPlace == 0) {
+                    console.log("Placed");
                     grid[x][y] = blockToPlace;
                 }
             }
@@ -222,14 +225,6 @@ function waterLogic(x, y, nextGrid) {
     let cellRight = -1;
     let cellUpRight = -1;
     let cellUpLeft = -1;
-    let cellUp = -1;
-
-    if (y > 0) {
-        cellUp = grid[x][y - 1];
-    }
-    if (cellUp == 1) {
-        return;
-    }
 
     if (x < gridSize - 1 && y < gridSize - 1) {
         cellDownRight = grid[x + 1][y + 1]
@@ -255,6 +250,7 @@ function waterLogic(x, y, nextGrid) {
     if (x < gridSize - 1 && y > 0) {
         cellUpRight = grid[x + 1][y - 1];
     }
+
     if (cellDown == 0 || (cellDown != 2 && cell2Down == 0)) {
         randomOrder = Math.round(Math.random() * 3);
         if (randomOrder != 0) {
@@ -350,18 +346,10 @@ function sandLogic(x, y, nextGrid) {
     if (y < gridSize - 2) {
         cell2Down = grid[x][y + 2];
     }
-
-    if (cell2Down == 3 && cellDown != 3) {
-        nextGrid[x][y] = 1;
-        return;
-    }
     
-    if (cellDown == 0 || cellDown == 3) {
+    if (cellDown == 0 || (cellDown != 2 && cell2Down == 0)) {
         randomOrder = Math.round(Math.random() * 8);
-        if (randomOrder != 0 && (cellDown == 0 || cellDown == 3)) {
-            if (cellDown == 3) {
-                nextGrid[x][y] = 3;
-            }
+        if (randomOrder != 0 && nextGrid[x][y + 1] == 0) {
             nextGrid[x][y + 1] = 1;
             return;
         }
@@ -370,34 +358,22 @@ function sandLogic(x, y, nextGrid) {
 
     randomOrder = Math.round(Math.random());
     if (randomOrder == 1) {
-        if (cellDownLeft == 0 && cellLeft == 0 && (nextGrid[x - 1][y + 1] == 0 || cellDown == 3)) {
-            if (cellDown == 3) {
-                nextGrid[x][y] = 3;
-            }
+        if (cellDownLeft == 0 && cellLeft == 0 && nextGrid[x-1][y+1] == 0) {
             nextGrid[x - 1][y + 1] = 1;
             return;
         }
-        if (cellDownRight == 0 && cellRight == 0 && (nextGrid[x + 1][y + 1] == 0 || cellDown == 3)) {
-            if (cellDown == 3) {
-                nextGrid[x][y] = 3;
-            }
+        if (cellDownRight == 0 && cellRight == 0 && nextGrid[x - 1][y + 1] == 0) {
             nextGrid[x + 1][y + 1] = 1;
             return;
         }
         nextGrid[x][y] = 1;
         return;
     } else {
-        if (cellDownRight == 0 && cellRight == 0 && (nextGrid[x + 1][y + 1] == 0 || cellDown == 3)) {
-            if (cellDown == 3) {
-                nextGrid[x][y] = 3;
-            }
+        if (cellDownRight == 0 && cellRight == 0 && nextGrid[x - 1][y + 1] == 0) {
             nextGrid[x + 1][y + 1] = 1;
             return;
         }
-        if (cellDownLeft == 0 && cellLeft == 0 && (nextGrid[x - 1][y + 1] == 0 || cellDown == 3)) {
-            if (cellDown == 3) {
-                nextGrid[x][y] = 3;
-            }
+        if (cellDownLeft == 0 && cellLeft == 0 && nextGrid[x - 1][y + 1] == 0) {
             nextGrid[x - 1][y + 1] = 1;
             return;
         }
