@@ -18,6 +18,10 @@ let blockTypeAmount = 4;
 ctx.lineWidth = cellSize / 10;
 ctx.strokeStyle = 'blue';
 
+
+
+let lastTime = Date.now();;
+let timeSincePreviousFrame = 0;
 let timeBetweenFrames = 0.001;
 
 canvas.addEventListener("mousemove", (e) => {
@@ -85,96 +89,21 @@ window.addEventListener("keydown", (e) => {
     }
 });
 
-let workersDone = true;
-let worker1Done = true;
-let worker2Done = true;
-let worker3Done = true;
-let worker4Done = true;
-const worker1 = new Worker('workerThread.js');
-const worker2 = new Worker('workerThread.js');
-const worker3 = new Worker('workerThread.js');
-const worker4 = new Worker('workerThread.js');
-let newGrid = createGrid();
-
 animate();
 
 function animate() {
+    let now = Date.now();
+    const dt = (now - lastTime) / 1000;
+    lastTime = now;
+    timeSincePreviousFrame += dt;
+    if (timeSincePreviousFrame >= timeBetweenFrames) {
+        timeSincePreviousFrame = 0;
+        updateGrid();
+    }
+
     if (mouseDown) {
         addElementByMouse();
     }
-
-    worker1.onmessage = function (e) {
-        newGrid = copyGrid(newGrid, e.data, worker1.startRow, worker1.endRow);
-        worker1Done = true;
-    }
-    worker2.onmessage = function (e) {
-        newGrid = copyGrid(newGrid, e.data, worker2.startRow, worker2.endRow);
-        worker2Done = true;
-    }
-    worker3.onmessage = function (e) {
-        newGrid = copyGrid(newGrid, e.data, worker3.startRow, worker3.endRow);
-        worker3Done = true;
-    }
-    worker4.onmessage = function (e) {
-        newGrid = copyGrid(newGrid, e.data, worker4.startRow, worker4.endRow);
-        worker4Done = true;
-    }
-
-    if (worker1Done && worker2Done && worker3Done && worker4Done) {
-        console.log("done");
-        grid = newGrid;
-        workersDone = true;
-    }
-
-
-    if (workersDone) {
-        timeSincePreviousFrame = 0;
-        if (window.Worker) {
-            const chunkData1 = {
-                startRow: 0,
-                endRow: gridSize / 2,
-                startColumn: 0,
-                endColumn: gridSize/2,
-                grid: grid,
-                gridSize: gridSize/2
-            }
-            const chunkData2 = {
-                startRow: 0,
-                endRow: gridSize / 2,
-                startColumn: gridSize / 2,
-                endColumn: gridSize,
-                grid: grid,
-                gridSize: gridSize / 2
-            }
-            const chunkData3 = {
-                startRow: gridSize / 2,
-                endRow: gridSize,
-                startColumn: 0,
-                endColumn: gridSize / 2,
-                grid: grid,
-                gridSize: gridSize / 2
-            }
-            const chunkData4 = {
-                startRow: gridSize / 2,
-                endRow: gridSize,
-                startColumn: gridSize / 2,
-                endColumn: gridSize,
-                grid: grid,
-                gridSize: gridSize / 2
-            }
-            workersDone = false;
-            worker1Done = false;
-            worker2Done = false;
-            worker3Done = false;
-            worker4Done = false;
-
-            worker1.postMessage(chunkData1);
-            worker2.postMessage(chunkData2);
-            worker3.postMessage(chunkData3);
-            worker4.postMessage(chunkData4);
-        }
-    }
-
 
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -183,14 +112,91 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-function copyGrid(oldGrid, nextGrid, startRow, endRow) {
-    let newGrid = oldGrid;
-    for (let x = startRow; x < endRow; x++) {
-        for (let y = startRow; y < endRow; y++) {
-            newGrid[x][y] = nextGrid[x][y];
+function addElementByMouse() {
+    let gridX = Math.floor(mouseX / cellSize);
+    let gridY = Math.floor(mouseY / cellSize);
+
+    for (let x = Math.max(0, gridX - brushRadius); x < Math.min(gridX + brushRadius, gridSize); x++) {
+        for (let y = Math.max(0, gridY - brushRadius); y < Math.min(gridY + brushRadius, gridSize); y++) {
+            let dx = x - gridX;
+            let dy = y - gridY;
+            console.log("Lets Play")
+            if (dx * dx + dy * dy <= brushRadius * brushRadius) {
+                console.log("place?");
+                if (grid[x][y] == 0 || blockToPlace == 0) {
+                    console.log("Placed");
+                    grid[x][y] = blockToPlace;
+                }
+            }
         }
     }
-    return newGrid;
+}
+
+function updateGrid() {
+    let randomOrder = Math.round(Math.random() * 3);
+    let fromX;
+    let toX;
+    let fromY;
+    let toY;
+    let stepX;
+    let stepY;
+
+    switch (randomOrder) {
+        case 0:
+            fromX = 0;
+            toX = gridSize;
+            stepX = 1;
+            fromY = 0;
+            toY = gridSize;
+            stepY = 1;
+            break;
+        case 1:
+            fromX = gridSize - 1;
+            toX = -1;
+            stepX = -1;
+            fromY = 0;
+            toY = gridSize;
+            stepY = 1;
+            break;
+        case 2:
+            fromX = 0;
+            toX = gridSize;
+            stepX = 1;
+            fromY = gridSize - 1;
+            toY = -1;
+            stepY = -1;
+            break;
+        case 3:
+            fromX = gridSize - 1;
+            toX = -1;
+            stepX = -1;
+            fromY = gridSize - 1;
+            toY = -1;
+            stepY = -1;
+            break;
+
+    }
+
+    let nextGrid = createGrid();
+
+    for (let x = fromX; x != toX; x += stepX) {
+        for (let y = fromY; y != toY; y += stepY) {
+            switch (grid[x][y]) {
+                case 1: //Sand
+                    sandLogic(x, y, nextGrid);
+                    continue;
+                case 2:
+                    solidLogic(x, y, nextGrid);
+                    continue;
+                case 3: //Water 
+                    waterLogic(x, y, nextGrid);
+                    continue;
+                default:
+                    continue;
+            }
+        }
+    }
+    grid = nextGrid;
 }
 
 function createGrid() {
@@ -206,24 +212,175 @@ function createGrid() {
     return newGrid;
 }
 
-function addElementByMouse() {
-    let gridX = Math.floor(mouseX / cellSize);
-    let gridY = Math.floor(mouseY / cellSize);
+function solidLogic(x, y, nextGrid) {
+    nextGrid[x][y] = 2;
+}
 
-    for (let x = Math.max(0, gridX - brushRadius); x < Math.min(gridX + brushRadius, gridSize); x++) {
-        for (let y = Math.max(0, gridY - brushRadius); y < Math.min(gridY + brushRadius, gridSize); y++) {
-            let dx = x - gridX;
-            let dy = y - gridY;
-            if (dx * dx + dy * dy <= brushRadius * brushRadius) {
-                if (grid[x][y] == 0 || blockToPlace == 0) {
-                    grid[x][y] = blockToPlace;
-                }
+function waterLogic(x, y, nextGrid) {
+    let cellDown = -1;
+    let cell2Down = -1;
+    let cellDownRight = -1;
+    let cellDownLeft = -1;
+    let cellLeft = -1;
+    let cellRight = -1;
+    let cellUpRight = -1;
+    let cellUpLeft = -1;
+
+    if (x < gridSize - 1 && y < gridSize - 1) {
+        cellDownRight = grid[x + 1][y + 1]
+    }
+    if (x > 0 && y < gridSize - 1) {
+        cellDownLeft = grid[x - 1][y + 1]
+    }
+    if (x > 0) {
+        cellLeft = grid[x - 1][y];
+    }
+    if (x < gridSize - 1) {
+        cellRight = grid[x + 1][y];
+    }
+    if (y < gridSize - 1) {
+        cellDown = grid[x][y + 1];
+    }
+    if (y < gridSize - 2) {
+        cell2Down = grid[x][y + 2];
+    }
+    if (x > 0 && y > 0) {
+        cellUpLeft = grid[x - 1][y - 1];
+    }
+    if (x < gridSize - 1 && y > 0) {
+        cellUpRight = grid[x + 1][y - 1];
+    }
+
+    if (cellDown == 0 || (cellDown != 2 && cell2Down == 0)) {
+        randomOrder = Math.round(Math.random() * 3);
+        if (randomOrder != 0) {
+            nextGrid[x][y + 1] = 3;
+            return;
+        }
+    }
+
+    randomOrder = Math.round(Math.random());
+    if (randomOrder == 1) {
+        if (cellDownLeft == 0 && cellLeft == 0) {
+            if (nextGrid[x - 1][y + 1] == 0) {
+                nextGrid[x - 1][y + 1] = 3;
+                return;
+            }
+        }
+        if (cellDownRight == 0 && cellRight == 0) {
+            if (nextGrid[x + 1][y + 1] == 0) {
+                nextGrid[x + 1][y + 1] = 3;
+                return;
+            }
+        }
+    } else {
+        if (cellDownRight == 0 && cellRight == 0) {
+            if (nextGrid[x + 1][y + 1] == 0) {
+                nextGrid[x + 1][y + 1] = 3;
+                return;
+            }
+        }
+        if (cellDownLeft == 0 && cellLeft == 0) {
+            if (nextGrid[x - 1][y + 1] == 0) {
+                nextGrid[x - 1][y + 1] = 3;
+                return;
             }
         }
     }
+
+    randomOrder = Math.round(Math.random());
+    if (randomOrder == 1) {
+        if (cellLeft == 0 && (cellUpLeft == 0 || cellUpLeft == 2)) {
+            if (nextGrid[x - 1][y] == 0) {
+                nextGrid[x - 1][y] = 3;
+                return;
+            }
+        }
+        if (cellRight == 0 && (cellUpRight == 0 || cellUpRight == 2)) {
+            if (nextGrid[x + 1][y] == 0) {
+                nextGrid[x + 1][y] = 3;
+                return;
+            }
+        }
+    } else {
+        if (cellRight == 0 && (cellUpRight == 0 || cellUpRight == 2)) {
+            if (nextGrid[x + 1][y] == 0) {
+                nextGrid[x + 1][y] = 3;
+                return;
+            }
+        }
+        if (cellLeft == 0 && (cellUpLeft == 0 || cellUpLeft == 2)) {
+            if (nextGrid[x - 1][y] == 0) {
+                nextGrid[x - 1][y] = 3;
+                return;
+            }
+        }
+    }
+    nextGrid[x][y] = 3;
+    return;
 }
 
+function sandLogic(x, y, nextGrid) {
+    let cellDown = -1;
+    let cell2Down = -1;
+    let cellDownRight = -1;
+    let cellDownLeft = -1;
+    let cellLeft = -1;
+    let cellRight = -1;
 
+    if (x < gridSize - 1 && y < gridSize - 1) {
+        cellDownRight = grid[x + 1][y + 1]
+    }
+    if (x > 0 && y < gridSize - 1) {
+        cellDownLeft = grid[x - 1][y + 1]
+    }
+    if (x > 0) {
+        cellLeft = grid[x - 1][y];
+    }
+    if (x < gridSize - 1) {
+        cellRight = grid[x + 1][y];
+    }
+    if (y < gridSize - 1) {
+        cellDown = grid[x][y + 1];
+    }
+    if (y < gridSize - 2) {
+        cell2Down = grid[x][y + 2];
+    }
+    
+    if (cellDown == 0 || (cellDown != 2 && cell2Down == 0)) {
+        randomOrder = Math.round(Math.random() * 8);
+        if (randomOrder != 0 && nextGrid[x][y + 1] == 0) {
+            nextGrid[x][y + 1] = 1;
+            return;
+        }
+    }
+
+
+    randomOrder = Math.round(Math.random());
+    if (randomOrder == 1) {
+        if (cellDownLeft == 0 && cellLeft == 0 && nextGrid[x-1][y+1] == 0) {
+            nextGrid[x - 1][y + 1] = 1;
+            return;
+        }
+        if (cellDownRight == 0 && cellRight == 0 && nextGrid[x + 1][y + 1] == 0) {
+            nextGrid[x + 1][y + 1] = 1;
+            return;
+        }
+        nextGrid[x][y] = 1;
+        return;
+    } else {
+        if (cellDownRight == 0 && cellRight == 0 && nextGrid[x + 1][y + 1] == 0) {
+            nextGrid[x + 1][y + 1] = 1;
+            return;
+        }
+        if (cellDownLeft == 0 && cellLeft == 0 && nextGrid[x - 1][y + 1] == 0) {
+            nextGrid[x - 1][y + 1] = 1;
+            return;
+        }
+        nextGrid[x][y] = 1;
+        return;
+    }
+}
 
 function drawGridElements() {
     for (let x = gridSize - 1; x >= 0; x--) {
